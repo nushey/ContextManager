@@ -9,6 +9,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\..\src\ContextManager.Analysis\ContextManager.Analysis.csproj" />
+        <ProjectReference Include="..\..\src\ContextManager.Mcp\ContextManager.Mcp.csproj" />
     </ItemGroup>
 
     <ItemGroup>

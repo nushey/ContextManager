@@ -1,5 +1,7 @@
+using System.Text.Json;
 using ContextManager.Analysis;
 using ContextManager.Analysis.Models;
+using ContextManager.Mcp.Serialization;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace ContextManager.Analysis.Tests;
@@ -363,5 +365,21 @@ public class FileAnalyzerTests
         Assert.IsInstanceOfType(result, typeof(FileAnalysis));
         var analysis = (FileAnalysis)result;
         Assert.AreEqual("OrderStatus.cs", analysis.File);
+    }
+
+    // ── Determinism ───────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public void FileAnalyzer_IsDeterministic()
+    {
+        var path = FixturePath("ServiceWithDependencies.cs");
+
+        var first = FileAnalyzer.Analyze(path, CancellationToken.None);
+        var second = FileAnalyzer.Analyze(path, CancellationToken.None);
+
+        var json1 = JsonSerializer.Serialize(first, AnalysisJson.Options);
+        var json2 = JsonSerializer.Serialize(second, AnalysisJson.Options);
+
+        Assert.AreEqual(json1, json2);
     }
 }
