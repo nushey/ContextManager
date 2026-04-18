@@ -5,6 +5,58 @@ namespace ContextManager.Analysis.Extraction;
 
 public static class MemberExtractor
 {
+    public static TypeInfo Build(EnumDeclarationSyntax node, bool isTopLevel)
+    {
+        var name = node.Identifier.ValueText;
+        var access = AccessLevel.FromModifiers(node.Modifiers, isTopLevel);
+        var attributes = AttributeExtractor.Render(node.AttributeLists);
+        var members = node.Members.Select(m => m.Identifier.ValueText).ToList();
+
+        return new TypeInfo(
+            Name: name,
+            Kind: "enum",
+            Access: access,
+            Base: null,
+            Implements: [],
+            Attributes: attributes,
+            ConstructorDependencies: [],
+            Methods: [],
+            Properties: [],
+            Members: members);
+    }
+
+    public static TypeInfo Build(DelegateDeclarationSyntax node, bool isTopLevel)
+    {
+        var name = node.Identifier.ValueText;
+        var access = AccessLevel.FromModifiers(node.Modifiers, isTopLevel);
+        var attributes = AttributeExtractor.Render(node.AttributeLists);
+        var parameters = node.ParameterList.Parameters
+            .Select(p => new Models.ParameterInfo(
+                p.Type?.ToString() ?? string.Empty,
+                p.Identifier.ValueText))
+            .ToList();
+
+        var syntheticMethod = new Models.MethodInfo(
+            Name: name,
+            Access: access,
+            ReturnType: node.ReturnType.ToString(),
+            Parameters: parameters,
+            Attributes: []);
+
+        return new TypeInfo(
+            Name: name,
+            Kind: "delegate",
+            Access: access,
+            Base: null,
+            Implements: [],
+            Attributes: attributes,
+            ConstructorDependencies: [],
+            Methods: [syntheticMethod],
+            Properties: [],
+            Members: null);
+    }
+
+
     public static TypeInfo Build(TypeDeclarationSyntax node, bool isTopLevel)
     {
         var name = node.Identifier.ValueText;

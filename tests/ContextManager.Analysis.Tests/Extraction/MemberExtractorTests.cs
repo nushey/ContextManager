@@ -14,6 +14,36 @@ public class MemberExtractorTests
         return (TypeDeclarationSyntax)tree.GetCompilationUnitRoot().Members[0];
     }
 
+    private static EnumDeclarationSyntax ParseFirstEnum(string snippet)
+    {
+        var tree = CSharpSyntaxTree.ParseText(snippet);
+        return (EnumDeclarationSyntax)tree.GetCompilationUnitRoot().Members[0];
+    }
+
+    private static DelegateDeclarationSyntax ParseFirstDelegate(string snippet)
+    {
+        var tree = CSharpSyntaxTree.ParseText(snippet);
+        return (DelegateDeclarationSyntax)tree.GetCompilationUnitRoot().Members[0];
+    }
+
+    private static EnumDeclarationSyntax ParseEnumFromFixture(string relativeFixturePath)
+    {
+        var fixturePath = Path.Combine(
+            Path.GetDirectoryName(typeof(MemberExtractorTests).Assembly.Location)!,
+            relativeFixturePath);
+        var text = File.ReadAllText(fixturePath);
+        var tree = CSharpSyntaxTree.ParseText(text);
+        var root = tree.GetCompilationUnitRoot();
+
+        if (root.Members[0] is FileScopedNamespaceDeclarationSyntax fileNs)
+            return (EnumDeclarationSyntax)fileNs.Members[0];
+
+        if (root.Members[0] is NamespaceDeclarationSyntax blockNs)
+            return (EnumDeclarationSyntax)blockNs.Members[0];
+
+        return (EnumDeclarationSyntax)root.Members[0];
+    }
+
     private static TypeDeclarationSyntax ParseFromFixture(string relativeFixturePath)
     {
         var fixturePath = Path.Combine(
@@ -411,5 +441,146 @@ public class MemberExtractorTests
         var result = MemberExtractor.Build(node, isTopLevel: true);
 
         Assert.IsNull(result.Members);
+    }
+
+    // ── Enum ──────────────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public void Enum_KindIsEnum()
+    {
+        var node = ParseEnumFromFixture(@"Fixtures/OrderStatus.cs");
+        var result = MemberExtractor.Build(node, isTopLevel: true);
+
+        Assert.AreEqual("enum", result.Kind);
+    }
+
+    [TestMethod]
+    public void Enum_MembersMatchSourceOrder()
+    {
+        var node = ParseEnumFromFixture(@"Fixtures/OrderStatus.cs");
+        var result = MemberExtractor.Build(node, isTopLevel: true);
+
+        Assert.IsNotNull(result.Members);
+        Assert.AreEqual(3, result.Members.Count);
+        Assert.AreEqual("Pending", result.Members[0]);
+        Assert.AreEqual("Processing", result.Members[1]);
+        Assert.AreEqual("Completed", result.Members[2]);
+    }
+
+    [TestMethod]
+    public void Enum_MembersContainNoNumericValues()
+    {
+        var node = ParseFirstEnum("enum Status { Active = 1, Inactive = 2 }");
+        var result = MemberExtractor.Build(node, isTopLevel: true);
+
+        Assert.IsNotNull(result.Members);
+        Assert.IsTrue(result.Members.All(m => !m.Contains('=')));
+        CollectionAssert.AreEqual(new[] { "Active", "Inactive" }, result.Members.ToArray());
+    }
+
+    [TestMethod]
+    public void Enum_MethodsIsEmpty()
+    {
+        var node = ParseEnumFromFixture(@"Fixtures/OrderStatus.cs");
+        var result = MemberExtractor.Build(node, isTopLevel: true);
+
+        Assert.AreEqual(0, result.Methods.Count);
+    }
+
+    [TestMethod]
+    public void Enum_PropertiesIsEmpty()
+    {
+        var node = ParseEnumFromFixture(@"Fixtures/OrderStatus.cs");
+        var result = MemberExtractor.Build(node, isTopLevel: true);
+
+        Assert.AreEqual(0, result.Properties.Count);
+    }
+
+    [TestMethod]
+    public void Enum_ConstructorDependenciesIsEmpty()
+    {
+        var node = ParseEnumFromFixture(@"Fixtures/OrderStatus.cs");
+        var result = MemberExtractor.Build(node, isTopLevel: true);
+
+        Assert.AreEqual(0, result.ConstructorDependencies.Count);
+    }
+
+    // ── Delegate ──────────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public void Delegate_KindIsDelegate()
+    {
+        var node = ParseFirstDelegate("public delegate string OrderHandler(int orderId, string status);");
+        var result = MemberExtractor.Build(node, isTopLevel: true);
+
+        Assert.AreEqual("delegate", result.Kind);
+    }
+
+    [TestMethod]
+    public void Delegate_MembersIsNull()
+    {
+        var node = ParseFirstDelegate("public delegate void Notify(string message);");
+        var result = MemberExtractor.Build(node, isTopLevel: true);
+
+        Assert.IsNull(result.Members);
+    }
+
+    [TestMethod]
+    public void Delegate_SingleSyntheticMethod()
+    {
+        var node = ParseFirstDelegate("public delegate string OrderHandler(int orderId, string status);");
+        var result = MemberExtractor.Build(node, isTopLevel: true);
+
+        Assert.AreEqual(1, result.Methods.Count);
+    }
+
+    [TestMethod]
+    public void Delegate_SyntheticMethodHasDelegateName()
+    {
+        var node = ParseFirstDelegate("public delegate string OrderHandler(int orderId, string status);");
+        var result = MemberExtractor.Build(node, isTopLevel: true);
+
+        Assert.AreEqual("OrderHandler", result.Methods[0].Name);
+    }
+
+    [TestMethod]
+    public void Delegate_SyntheticMethodHasCorrectReturnType()
+    {
+        var node = ParseFirstDelegate("public delegate string OrderHandler(int orderId, string status);");
+        var result = MemberExtractor.Build(node, isTopLevel: true);
+
+        Assert.AreEqual("string", result.Methods[0].ReturnType);
+    }
+
+    [TestMethod]
+    public void Delegate_SyntheticMethodParametersPreservedInOrder()
+    {
+        var node = ParseFirstDelegate("public delegate string OrderHandler(int orderId, string status);");
+        var result = MemberExtractor.Build(node, isTopLevel: true);
+
+        var parameters = result.Methods[0].Parameters;
+        Assert.AreEqual(2, parameters.Count);
+        Assert.AreEqual("int", parameters[0].Type);
+        Assert.AreEqual("orderId", parameters[0].Name);
+        Assert.AreEqual("string", parameters[1].Type);
+        Assert.AreEqual("status", parameters[1].Name);
+    }
+
+    [TestMethod]
+    public void Delegate_PropertiesIsEmpty()
+    {
+        var node = ParseFirstDelegate("public delegate void Notify(string message);");
+        var result = MemberExtractor.Build(node, isTopLevel: true);
+
+        Assert.AreEqual(0, result.Properties.Count);
+    }
+
+    [TestMethod]
+    public void Delegate_ConstructorDependenciesIsEmpty()
+    {
+        var node = ParseFirstDelegate("public delegate void Notify(string message);");
+        var result = MemberExtractor.Build(node, isTopLevel: true);
+
+        Assert.AreEqual(0, result.ConstructorDependencies.Count);
     }
 }
