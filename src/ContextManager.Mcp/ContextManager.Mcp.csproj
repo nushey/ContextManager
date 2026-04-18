@@ -8,6 +8,11 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="ModelContextProtocol" Version="0.3.0-preview.4" />
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="..\ContextManager.Analysis\ContextManager.Analysis.csproj" />
     </ItemGroup>
 
